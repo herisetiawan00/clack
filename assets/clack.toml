@@ -1,0 +1,35 @@
+with_default_config = true
+
+[keymaps]
+up = "k"
+down = "j"
+left = "h"
+right = "l"
+exit = "ctrl+c"
+open = "o"
+search = "/"
+interact = "i"
+send = "ctrl+enter"
+
+[keymaps.focus]
+up = "shift+K"
+down = "shift+J"
+left = "shift+H"
+right = "shift+L"
+
+[slack]
+client_id = ""
+client_secret = ""
+
+[status_line.left]
+primary = " %mode% "
+secondary = " %channel% "
+
+[status_line.right]
+primary = " %user% "
+secondary = " %team% "
+
+[appearance]
+left_separator = "\ue0b6"
+right_separator = "\ue0b4"
+separator = "|"

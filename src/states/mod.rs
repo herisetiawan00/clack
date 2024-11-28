@@ -1,0 +1,63 @@
+pub mod initial;
+
+use crate::{
+    entities::slack::{
+        authorization::Authorization, conversations::Channel, messages::Message, users::Member,
+    },
+    enums::{section::Section, user_mode::UserMode},
+};
+
+#[derive(Clone)]
+pub struct State {
+    pub authorization: Option<Authorization>,
+    pub global: GlobalState,
+    pub navigator: NavigatorState,
+    pub channel: ChannelState,
+    pub message: MessageState,
+    pub input: InputState,
+}
+
+#[derive(Clone)]
+pub struct GlobalState {
+    pub members: Vec<Member>,
+    pub mode: UserMode,
+}
+
+#[derive(Clone)]
+pub struct NavigatorState {
+    pub section: Section,
+    pub exit: bool,
+}
+
+#[derive(Clone)]
+pub struct InputState {
+    pub value: String,
+    pub send: bool,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ChannelState {
+    pub channels: Vec<Channel>,
+    pub direct_messages: Vec<Channel>,
+    pub selected: Option<Channel>,
+    pub selected_index: Option<usize>,
+    pub opened: Option<Channel>,
+    pub search: String,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct MessageState {
+    pub messages: Vec<Message>,
+    pub selected: Option<Message>,
+    pub selected_index: Option<usize>,
+}
+
+impl GlobalState {
+    pub fn get_user(&self, id: String) -> Option<Member> {
+        self.members
+            .iter()
+            .filter(|user| user.id == id)
+            .next()
+            .map_or(None, |user| Some(user.clone()))
+    }
+}
