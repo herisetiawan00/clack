@@ -1,5 +1,3 @@
-pub mod initial;
-
 use crate::{
     entities::slack::{
         authorization::Authorization, conversations::Channel, messages::Message, users::Member,
@@ -11,7 +9,6 @@ use crate::{
 pub struct State {
     pub authorization: Option<Authorization>,
     pub global: GlobalState,
-    pub navigator: NavigatorState,
     pub channel: ChannelState,
     pub message: MessageState,
     pub input: InputState,
@@ -21,10 +18,6 @@ pub struct State {
 pub struct GlobalState {
     pub members: Vec<Member>,
     pub mode: UserMode,
-}
-
-#[derive(Clone)]
-pub struct NavigatorState {
     pub section: Section,
     pub exit: bool,
 }
@@ -50,6 +43,37 @@ pub struct MessageState {
     pub messages: Vec<Message>,
     pub selected: Option<Message>,
     pub selected_index: Option<usize>,
+}
+
+impl State {
+    pub fn new() -> State {
+        State {
+            authorization: None,
+            global: GlobalState {
+                members: Vec::new(),
+                mode: UserMode::Normal,
+                section: Section::Channel,
+                exit: false,
+            },
+            channel: ChannelState {
+                channels: Vec::new(),
+                direct_messages: Vec::new(),
+                selected: None,
+                selected_index: None,
+                opened: None,
+                search: String::new(),
+            },
+            message: MessageState {
+                messages: Vec::new(),
+                selected: None,
+                selected_index: None,
+            },
+            input: InputState {
+                value: String::new(),
+                send: false,
+            },
+        }
+    }
 }
 
 impl GlobalState {

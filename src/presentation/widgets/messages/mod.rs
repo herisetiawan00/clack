@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 
 use ratatui::{
     layout::Rect,
@@ -32,7 +32,7 @@ pub fn new() -> SectionData<'static> {
 fn need_render(old_state: &State, state: &State) -> bool {
     old_state.channel.opened != state.channel.opened
         || old_state.global.mode != state.global.mode
-        || old_state.navigator.section != state.navigator.section
+        || old_state.global.section != state.global.section
         || old_state.message != state.message
 }
 
@@ -50,19 +50,9 @@ fn render(
 
     let title = channel.map_or(String::new(), |channel| channel.name.unwrap_or(channel.id));
 
-    let height = (chunk.height - 2) as i32;
-    let skip = cloned_state.message.messages.len() as i32 - height;
-    let take = chunk.height;
-
-    let visible_messages = cloned_state
-        .message
-        .messages
-        .iter()
-        .skip(skip as usize)
-        .take(take as usize);
     let mut list_item: Vec<ListItem> = Vec::new();
 
-    for message in visible_messages {
+    for message in cloned_state.message.messages {
         let style = if state
             .message
             .selected
@@ -93,18 +83,18 @@ fn render(
             let user = cloned_state.global.get_user(user_id.clone());
             let text = message.text.clone();
 
-            let pattern = r"<@(\w+)>";
-            let re = Regex::new(pattern).unwrap();
-
-            let result = re.replace_all(&text, |caps: &regex::Captures| {
-                let user_id = &caps[1];
-                cloned_state
-                    .global
-                    .get_user(user_id.to_string())
-                    .map_or(String::new(), |user| {
-                        format!("@{}", user.profile.display_name)
-                    })
-            });
+            //let pattern = r"<@(\w+)>";
+            //let re = Regex::new(pattern).unwrap();
+            //
+            //let result = re.replace_all(&text, |caps: &regex::Captures| {
+            //    let user_id = &caps[1];
+            //    cloned_state
+            //        .global
+            //        .get_user(user_id.to_string())
+            //        .map_or(String::new(), |user| {
+            //            format!("@{}", user.profile.display_name)
+            //        })
+            //});
 
             let user_name = user
                 .clone()
@@ -117,11 +107,14 @@ fn render(
             let g = u8::from_str_radix(&user_color[2..4], 16).unwrap();
             let b = u8::from_str_radix(&user_color[4..6], 16).unwrap();
 
-            let splited_message = split_with_space(
-                result.clone().to_string(),
-                chunk.width as usize - 2,
-                Some(user_name.len()),
-            );
+            //let splited_message = split_with_space(
+            //    text,
+            //    //result.clone().to_string(),
+            //    chunk.width as usize - 2,
+            //    Some(user_name.len()),
+            //);
+
+            let splited_message = vec![text];
 
             let mut iterated_message = splited_message.iter();
 
@@ -155,10 +148,20 @@ fn render(
 
                 list_item.push(item);
             }
+
+            cache.widgets.insert(cache_id, cache_data);
         }
     }
 
-    let skip = max(list_item.len() as i32 - chunk.height as i32 + 2, 0) as usize;
+    let height = min(chunk.height as i32 - 2, state.message.messages.len() as i32);
+    let index = state.message.selected_index.unwrap_or(height as usize) as i32;
+    let length = state.message.messages.len() as i32;
+    let skip = max(length - max(length - index - height, 0) - height, 0) as usize;
+    //let skip = max(
+    //    list_item.len() as i32 - state.message.selected_index.unwrap_or(chunk.height.into()) as i32
+    //        + 2,
+    //    0,
+    //) as usize;
     list_item = list_item
         .clone()
         .iter()
@@ -166,10 +169,7 @@ fn render(
         .map(|item| item.to_owned())
         .collect();
 
-    match common::block::build(
-        state.navigator.section == Section::Message,
-        &state.global.mode,
-    ) {
+    match common::block::build(state.global.section == Section::Message, &state.global.mode) {
         Widgets::Block(block) => {
             result.push(WidgetData {
                 rect: chunk,

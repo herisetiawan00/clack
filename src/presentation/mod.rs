@@ -21,7 +21,6 @@ use crate::{
     cache::Cache,
     datasources::slack::{chat_post_message, get_conversations_history},
     entities::configuration::Configuration,
-    enums::widgets::Widgets,
     keymaps,
     states::State,
 };
@@ -119,16 +118,16 @@ pub async fn render(
         })?;
 
         let key_event = event::read()?;
-        frame_state = keymaps::generic(key_event.clone(), &config, frame_state);
-        frame_state = keymaps::channels(key_event.clone(), &config, frame_state);
-        frame_state = keymaps::messages(key_event.clone(), &config, frame_state);
-        frame_state = keymaps::input(key_event.clone(), &config, frame_state);
+        keymaps::generic(key_event.clone(), &config, &mut frame_state);
+        keymaps::channels(key_event.clone(), &config, &mut frame_state);
+        keymaps::messages(key_event.clone(), &config, &mut frame_state);
+        keymaps::input(key_event.clone(), &config, &mut frame_state);
 
         old_widget_map = frame_widget_map;
         old_state = state;
         state = frame_state;
 
-        if state.navigator.exit {
+        if state.global.exit {
             break;
         }
     }

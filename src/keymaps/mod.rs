@@ -5,11 +5,11 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crate::{
     entities::{configuration::Configuration, slack::conversations::Channel},
     enums::{section::Section, user_mode::UserMode},
-    states::{ChannelState, NavigatorState, State},
+    states::{ChannelState, State},
     utils,
 };
 
-pub fn generic(event: Event, config: &Configuration, mut state: State) -> State {
+pub fn generic(event: Event, config: &Configuration, state: &mut State) {
     let up = utils::keycode::from_string(config.keymaps.focus.up.clone());
     let down = utils::keycode::from_string(config.keymaps.focus.down.clone());
     let left = utils::keycode::from_string(config.keymaps.focus.left.clone());
@@ -21,24 +21,24 @@ pub fn generic(event: Event, config: &Configuration, mut state: State) -> State 
             Event::Key(KeyEvent {
                 modifiers, code, ..
             }) => match (modifiers, code) {
-                key if key == up => match state.navigator.section {
-                    Section::Input => state.navigator.section = Section::Message,
+                key if key == up => match state.global.section {
+                    Section::Input => state.global.section = Section::Message,
                     _ => {}
                 },
-                key if key == down => match state.navigator.section {
-                    Section::Message => state.navigator.section = Section::Input,
+                key if key == down => match state.global.section {
+                    Section::Message => state.global.section = Section::Input,
                     _ => {}
                 },
-                key if key == left => match state.navigator.section {
-                    Section::Message | Section::Input => state.navigator.section = Section::Channel,
+                key if key == left => match state.global.section {
+                    Section::Message | Section::Input => state.global.section = Section::Channel,
                     _ => {}
                 },
-                key if key == right => match state.navigator.section {
-                    Section::Channel => state.navigator.section = Section::Message,
+                key if key == right => match state.global.section {
+                    Section::Channel => state.global.section = Section::Message,
                     _ => {}
                 },
                 key if key == exit => {
-                    state.navigator.exit = true;
+                    state.global.exit = true;
                 }
                 _ => {}
             },
@@ -47,15 +47,11 @@ pub fn generic(event: Event, config: &Configuration, mut state: State) -> State 
         },
         _ => {}
     }
-
-    state
 }
 
-pub fn channels(event: Event, config: &Configuration, mut state: State) -> State {
-    let mut cloned_state = state.clone();
-
-    if state.navigator.section != Section::Channel {
-        return state;
+pub fn channels(event: Event, config: &Configuration, state: &mut State) {
+    if state.global.section != Section::Channel {
+        return;
     }
 
     let up = utils::keycode::from_string(config.keymaps.up.clone());
@@ -64,7 +60,7 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
     let open = utils::keycode::from_string(config.keymaps.open.clone());
     let search = utils::keycode::from_string(config.keymaps.search.clone());
 
-    let filtered_channels: Vec<&Channel> = cloned_state
+    let filtered_channels: Vec<&Channel> = state
         .channel
         .channels
         .iter()
@@ -73,25 +69,25 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
                 .name
                 .clone()
                 .unwrap_or(channel.id.clone())
-                .contains(&cloned_state.channel.search)
+                .contains(&state.channel.search)
         })
         .collect();
     let last_index = max(filtered_channels.len() as i32 - 1, 0) as usize;
 
-    if let Some(channel) = cloned_state.channel.selected.clone() {
+    if let Some(channel) = state.channel.selected.clone() {
         if !filtered_channels.contains(&&channel) {
-            cloned_state.channel.selected = None;
-            cloned_state.channel.selected_index = None;
+            state.channel.selected = None;
+            state.channel.selected_index = None;
         }
     }
 
-    match cloned_state.global.mode {
+    match state.global.mode {
         UserMode::Normal => match event {
             Event::Key(KeyEvent {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == up => {
-                    let next_index = match cloned_state.channel.selected {
+                    let next_index = match state.channel.selected.clone() {
                         Some(selected) => {
                             let index = filtered_channels
                                 .iter()
@@ -111,11 +107,11 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
                         None => last_index,
                     };
 
-                    cloned_state.channel.selected = Some(filtered_channels[next_index].clone());
-                    cloned_state.channel.selected_index = Some(next_index);
+                    state.channel.selected = Some(filtered_channels[next_index].clone());
+                    state.channel.selected_index = Some(next_index);
                 }
                 key if key == down => {
-                    let next_index = match cloned_state.channel.selected {
+                    let next_index = match state.channel.selected.clone() {
                         Some(selected) => {
                             let index = filtered_channels
                                 .iter()
@@ -135,18 +131,18 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
                         None => 0,
                     };
 
-                    cloned_state.channel.selected = Some(filtered_channels[next_index].clone());
-                    cloned_state.channel.selected_index = Some(next_index);
+                    state.channel.selected = Some(filtered_channels[next_index].clone());
+                    state.channel.selected_index = Some(next_index);
                 }
                 key if key == open || key == right => {
-                    cloned_state.channel.opened = cloned_state.channel.selected.clone();
-                    cloned_state.navigator.section = Section::Message;
+                    state.channel.opened = state.channel.selected.clone();
+                    state.global.section = Section::Message;
                 }
                 key if key == search => {
-                    cloned_state.global.mode = UserMode::Search;
+                    state.global.mode = UserMode::Search;
                 }
                 (KeyModifiers::NONE, KeyCode::Esc) => {
-                    cloned_state.channel.search = String::new();
+                    state.channel.search = String::new();
                 }
                 _ => {}
             },
@@ -156,17 +152,17 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
         UserMode::Search => match event {
             Event::Key(KeyEvent { code, .. }) => match code {
                 KeyCode::Char(code) => {
-                    cloned_state.channel.search.push(code);
+                    state.channel.search.push(code);
                 }
                 KeyCode::Delete | KeyCode::Backspace => {
-                    cloned_state.channel.search.pop();
+                    state.channel.search.pop();
                 }
                 KeyCode::Enter => {
-                    cloned_state.global.mode = UserMode::Normal;
+                    state.global.mode = UserMode::Normal;
                 }
                 KeyCode::Esc => {
-                    cloned_state.global.mode = UserMode::Normal;
-                    cloned_state.channel.search = String::new();
+                    state.global.mode = UserMode::Normal;
+                    state.channel.search = String::new();
                 }
                 _ => {}
             },
@@ -174,32 +170,26 @@ pub fn channels(event: Event, config: &Configuration, mut state: State) -> State
         },
         _ => {}
     }
-
-    state = cloned_state;
-
-    state
 }
 
-pub fn input(event: Event, config: &Configuration, mut state: State) -> State {
-    let mut cloned_state = state.clone();
-
-    if state.navigator.section != Section::Input {
-        return state;
+pub fn input(event: Event, config: &Configuration, state: &mut State) {
+    if state.global.section != Section::Input {
+        return;
     }
 
     let interact = utils::keycode::from_string(config.keymaps.interact.clone());
     let send = utils::keycode::from_string(config.keymaps.send.clone());
 
-    match cloned_state.global.mode {
+    match state.global.mode {
         UserMode::Normal => match event {
             Event::Key(KeyEvent {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == interact => {
-                    cloned_state.global.mode = UserMode::Interact;
+                    state.global.mode = UserMode::Interact;
                 }
                 (KeyModifiers::NONE, KeyCode::Enter) => {
-                    cloned_state.input.send = true;
+                    state.input.send = true;
                 }
                 _ => {}
             },
@@ -210,13 +200,13 @@ pub fn input(event: Event, config: &Configuration, mut state: State) -> State {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == send => {
-                    cloned_state.input.send = true;
+                    state.input.send = true;
                 }
                 (KeyModifiers::NONE, KeyCode::Char(code)) => {
-                    cloned_state.input.value.push(code);
+                    state.input.value.push(code);
                 }
                 (KeyModifiers::SHIFT, KeyCode::Char(code)) => {
-                    cloned_state
+                    state
                         .input
                         .value
                         .push_str(code.to_uppercase().to_string().as_str());
@@ -224,13 +214,13 @@ pub fn input(event: Event, config: &Configuration, mut state: State) -> State {
                 (KeyModifiers::NONE, code)
                     if code == KeyCode::Delete || code == KeyCode::Backspace =>
                 {
-                    cloned_state.input.value.pop();
+                    state.input.value.pop();
                 }
                 (KeyModifiers::NONE, KeyCode::Enter) => {
-                    cloned_state.input.value.push_str("\n");
+                    state.input.value.push_str("\n");
                 }
                 (KeyModifiers::NONE, KeyCode::Esc) => {
-                    cloned_state.global.mode = UserMode::Normal;
+                    state.global.mode = UserMode::Normal;
                     //cloned_state.input.value = String::new();
                 }
                 _ => {}
@@ -239,33 +229,27 @@ pub fn input(event: Event, config: &Configuration, mut state: State) -> State {
         },
         _ => {}
     };
-
-    state = cloned_state;
-
-    state
 }
 
-pub fn messages(event: Event, config: &Configuration, mut state: State) -> State {
-    let mut cloned_state = state.clone();
-
-    if state.navigator.section != Section::Message {
-        return state;
+pub fn messages(event: Event, config: &Configuration, state: &mut State) {
+    if state.global.section != Section::Message {
+        return;
     }
 
     let up = utils::keycode::from_string(config.keymaps.up.clone());
     let down = utils::keycode::from_string(config.keymaps.down.clone());
 
-    let last_index = max(cloned_state.message.messages.len() as i32 - 1, 0) as usize;
+    let last_index = max(state.message.messages.len() as i32 - 1, 0) as usize;
 
-    match cloned_state.global.mode {
+    match state.global.mode {
         UserMode::Normal => match event {
             Event::Key(KeyEvent {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == up => {
-                    let next_index = match cloned_state.message.selected {
+                    let next_index = match state.message.selected.clone() {
                         Some(selected) => {
-                            let index = cloned_state
+                            let index = state
                                 .message
                                 .messages
                                 .iter()
@@ -273,10 +257,10 @@ pub fn messages(event: Event, config: &Configuration, mut state: State) -> State
 
                             match index {
                                 Some(index) => {
-                                    if index == 0 {
-                                        last_index
-                                    } else {
+                                    if index > 0 {
                                         index - 1
+                                    } else {
+                                        index
                                     }
                                 }
                                 None => last_index,
@@ -285,14 +269,13 @@ pub fn messages(event: Event, config: &Configuration, mut state: State) -> State
                         None => last_index,
                     };
 
-                    cloned_state.message.selected =
-                        Some(cloned_state.message.messages[next_index].clone());
-                    cloned_state.message.selected_index = Some(next_index);
+                    state.message.selected = Some(state.message.messages[next_index].clone());
+                    state.message.selected_index = Some(next_index);
                 }
                 key if key == down => {
-                    let next_index = match cloned_state.message.selected {
+                    let next_index = match state.message.selected.clone() {
                         Some(selected) => {
-                            let index = cloned_state
+                            let index = state
                                 .message
                                 .messages
                                 .iter()
@@ -300,10 +283,10 @@ pub fn messages(event: Event, config: &Configuration, mut state: State) -> State
 
                             match index {
                                 Some(index) => {
-                                    if index == last_index {
-                                        0
-                                    } else {
+                                    if index < last_index {
                                         index + 1
+                                    } else {
+                                        index
                                     }
                                 }
                                 None => last_index,
@@ -312,9 +295,8 @@ pub fn messages(event: Event, config: &Configuration, mut state: State) -> State
                         None => last_index,
                     };
 
-                    cloned_state.message.selected =
-                        Some(cloned_state.message.messages[next_index].clone());
-                    cloned_state.message.selected_index = Some(next_index);
+                    state.message.selected = Some(state.message.messages[next_index].clone());
+                    state.message.selected_index = Some(next_index);
                 }
                 _ => {}
             },
@@ -322,8 +304,4 @@ pub fn messages(event: Event, config: &Configuration, mut state: State) -> State
         },
         _ => {}
     }
-
-    state = cloned_state;
-
-    state
 }

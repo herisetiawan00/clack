@@ -1,3 +1,5 @@
+use states::State;
+
 mod cache;
 mod constants;
 mod datasources;
@@ -11,7 +13,7 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = datasources::configuration::get_configuration()?;
-    let mut state = states::initial::initialize();
+    let mut state = State::new();
 
     let authorization = match datasources::slack::authorize_local().await {
         Ok(value) => value,

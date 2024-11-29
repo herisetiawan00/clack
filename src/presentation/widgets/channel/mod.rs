@@ -33,7 +33,7 @@ pub fn new() -> SectionData<'static> {
 fn need_render(old_state: &State, state: &State) -> bool {
     old_state.channel != state.channel
         || old_state.global.mode != state.global.mode
-        || old_state.navigator.section != state.navigator.section
+        || old_state.global.section != state.global.section
 }
 
 fn render(
@@ -48,7 +48,7 @@ fn render(
     let channels = channel_state.channels.clone();
 
     let show_search =
-        state.navigator.section == Section::Channel && state.global.mode == UserMode::Search;
+        state.global.section == Section::Channel && state.global.mode == UserMode::Search;
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -128,10 +128,7 @@ fn render(
         list_item.push(ListItem::new(item).style(style));
     }
 
-    match common::block::build(
-        state.navigator.section == Section::Channel,
-        &state.global.mode,
-    ) {
+    match common::block::build(state.global.section == Section::Channel, &state.global.mode) {
         Widgets::Block(block) => {
             let widget = List::new(list_item).block(block.clone());
             result.push(WidgetData {

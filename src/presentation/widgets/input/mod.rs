@@ -27,7 +27,7 @@ pub fn new() -> SectionData<'static> {
 fn need_render(old_state: &State, state: &State) -> bool {
     old_state.input.value != state.input.value
         || old_state.channel.opened != state.channel.opened
-        || old_state.navigator.section != state.navigator.section
+        || old_state.global.section != state.global.section
         || old_state.global.mode != state.global.mode
 }
 
@@ -67,10 +67,9 @@ fn render(
         Style::default()
     };
 
-    if let Widgets::Block(block) = common::block::build(
-        state.navigator.section == Section::Input,
-        &state.global.mode,
-    ) {
+    if let Widgets::Block(block) =
+        common::block::build(state.global.section == Section::Input, &state.global.mode)
+    {
         result.push(WidgetData {
             rect: chunk,
             widget: Widgets::Paragraph(Paragraph::new(text).style(style).block(block)),
