@@ -13,7 +13,7 @@ use crate::{
     entities::configuration::Configuration,
     enums::{section::Section, widgets::Widgets},
     states::State,
-    utils::string::split_with_space,
+    utils::string::{split_text_with_custom_first, split_with_space},
 };
 
 use super::{
@@ -83,18 +83,18 @@ fn render(
             let user = cloned_state.global.get_user(user_id.clone());
             let text = message.text.clone();
 
-            //let pattern = r"<@(\w+)>";
-            //let re = Regex::new(pattern).unwrap();
-            //
-            //let result = re.replace_all(&text, |caps: &regex::Captures| {
-            //    let user_id = &caps[1];
-            //    cloned_state
-            //        .global
-            //        .get_user(user_id.to_string())
-            //        .map_or(String::new(), |user| {
-            //            format!("@{}", user.profile.display_name)
-            //        })
-            //});
+            let pattern = r"<@(\w+)>";
+            let re = Regex::new(pattern).unwrap();
+
+            let result = re.replace_all(&text, |caps: &regex::Captures| {
+                let user_id = &caps[1];
+                cloned_state
+                    .global
+                    .get_user(user_id.to_string())
+                    .map_or(String::new(), |user| {
+                        format!("@{}", user.profile.display_name)
+                    })
+            });
 
             let user_name = user
                 .clone()
@@ -107,14 +107,11 @@ fn render(
             let g = u8::from_str_radix(&user_color[2..4], 16).unwrap();
             let b = u8::from_str_radix(&user_color[4..6], 16).unwrap();
 
-            //let splited_message = split_with_space(
-            //    text,
-            //    //result.clone().to_string(),
-            //    chunk.width as usize - 2,
-            //    Some(user_name.len()),
-            //);
-
-            let splited_message = vec![text];
+            let splited_message = split_text_with_custom_first(
+                &text,
+                chunk.width as usize - user_name.len() - 3,
+                chunk.width as usize,
+            );
 
             let mut iterated_message = splited_message.iter();
 
@@ -153,15 +150,10 @@ fn render(
         }
     }
 
-    let height = min(chunk.height as i32 - 2, state.message.messages.len() as i32);
+    let height = min(chunk.height as i32 - 2, list_item.len() as i32);
     let index = state.message.selected_index.unwrap_or(height as usize) as i32;
-    let length = state.message.messages.len() as i32;
+    let length = list_item.len() as i32;
     let skip = max(length - max(length - index - height, 0) - height, 0) as usize;
-    //let skip = max(
-    //    list_item.len() as i32 - state.message.selected_index.unwrap_or(chunk.height.into()) as i32
-    //        + 2,
-    //    0,
-    //) as usize;
     list_item = list_item
         .clone()
         .iter()
