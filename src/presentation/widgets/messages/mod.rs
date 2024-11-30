@@ -59,6 +59,8 @@ fn render(
     let mut prev_time = String::new();
     let mut prev_date = String::new();
 
+    let empty_line = Line::default();
+
     for message in state.message.messages.clone() {
         let style = if state
             .message
@@ -79,8 +81,14 @@ fn render(
             let style = Style::default().fg(Color::DarkGray);
 
             let date_length = date.len() + 2;
-            let dash_length = (chunks[1].width as usize - date_length - 2) / 2;
-            let right_dash = "-".repeat(dash_length + chunks[0].width as usize + 1);
+            let full_dash_length = chunks[1].width as usize - date_length - 1;
+            let dash_length = full_dash_length / 2;
+            let right_length = if full_dash_length & 1 == 1 {
+                dash_length + 1
+            } else {
+                dash_length
+            };
+            let right_dash = "-".repeat(right_length + (chunks[0].width as usize - 1));
             let left_dash = "-".repeat(dash_length - (chunks[0].width as usize - 1));
 
             let time_line = Line::default().spans([Span::styled(
@@ -123,7 +131,7 @@ fn render(
                 .clone()
                 .unwrap_or(message.bot_id.clone().unwrap_or_default());
             let user = state.global.get_user(user_id.clone());
-            let text = message.text.clone();
+            let text = message.text.clone().unwrap_or_default();
 
             let pattern = r"<@(\w+)>";
             let re = Regex::new(pattern).unwrap();
@@ -196,12 +204,46 @@ fn render(
                 let item = ListItem::new(line).style(style);
                 list_item.push(item);
 
-                let time_line = Line::default();
-                cache_data_time.push(Widgets::Line(time_line.clone()));
-                list_time.push(ListItem::new(time_line).style(style))
+                cache_data_time.push(Widgets::Line(empty_line.clone()));
+                list_time.push(ListItem::new(empty_line.clone()).style(style))
             }
 
-            //if message.
+            let mut message_footer = Vec::new();
+
+            if let Some(count) = message.reply_count {
+                if count > 0 {
+                    let text = format!("[+{} replies]", count);
+                    message_footer.push(text);
+                }
+            }
+
+            if let Some(reactions) = message.reactions {
+                for reaction in reactions {
+                    let text = format!("[:{}: {}]", reaction.name, reaction.count);
+                    message_footer.push(text);
+                }
+            }
+
+            if !message_footer.is_empty() {
+                let joined_footer = message_footer.join(" ");
+                let length = chunks[1].width as usize - 1;
+
+                let splited_footer = split_text_with_custom_first(&joined_footer, length, length);
+
+                let style = Style::default().fg(Color::Gray);
+
+                for part in splited_footer {
+                    let line = Line::default()
+                        .spans([Span::from(part.clone())])
+                        .style(style);
+                    cache_data.push(Widgets::Line(line.clone()));
+                    let item = ListItem::new(line).style(style);
+                    list_item.push(item);
+
+                    cache_data_time.push(Widgets::Line(empty_line.clone()));
+                    list_time.push(ListItem::new(empty_line.clone()).style(style))
+                }
+            }
 
             cache.widgets.insert(cache_id, cache_data);
             cache.widgets.insert(cache_id_time, cache_data_time);
