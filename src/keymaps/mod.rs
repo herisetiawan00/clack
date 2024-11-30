@@ -147,10 +147,12 @@ pub fn channels(event: Event, config: &Configuration, state: &mut State) {
                     state.channel.selected_index = Some(next_index);
                 }
                 key if key == open || key == right => {
-                    state.channel.opened = state.channel.selected.clone();
+                    if state.channel.opened != state.channel.selected {
+                        state.channel.opened = state.channel.selected.clone();
+                        state.message = MessageState::new();
+                        state.thread = ThreadState::new();
+                    }
                     state.global.section = Section::Message;
-                    state.message = MessageState::new();
-                    state.thread = ThreadState::new();
                 }
                 key if key == search => {
                     state.global.mode = UserMode::Search;
