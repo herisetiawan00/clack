@@ -1,4 +1,7 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    collections::HashMap,
+};
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -10,7 +13,7 @@ use regex::Regex;
 
 use crate::{
     cache::Cache,
-    entities::configuration::Configuration,
+    entities::{configuration::Configuration, slack::messages::Message},
     enums::{section::Section, widgets::Widgets},
     states::State,
     utils::string::{date_format, split_text_with_custom_first, split_with_space},
@@ -60,6 +63,9 @@ fn render(
     let mut prev_date = String::new();
 
     let empty_line = Line::default();
+
+    let mut message_index: HashMap<usize, usize> = HashMap::new();
+    let mut index = 0;
 
     for message in state.message.messages.clone() {
         let style = if state
@@ -248,16 +254,35 @@ fn render(
             cache.widgets.insert(cache_id, cache_data);
             cache.widgets.insert(cache_id_time, cache_data_time);
         }
+
+        message_index.insert(index, list_item.len());
+        index += 1;
     }
 
     let height = min(chunks[1].height as i32 - 2, list_item.len() as i32);
-    let index = state.message.selected_index.unwrap_or(height as usize) as i32;
+
+    let index = if message_index.is_empty() {
+        0
+    } else {
+        let selected = state.message.selected_index.clone();
+        if let Some(index) = selected {
+            message_index.get(&index).unwrap().clone()
+        } else {
+            message_index
+                .iter()
+                .max_by_key(|&(_, v)| v)
+                .unwrap()
+                .1
+                .clone()
+        }
+    };
     let length = list_item.len() as i32;
-    let skip = max(length - max(length - index - height, 0) - height + 2, 0) as usize;
+    let skip = max(0, (length - height) - (length - index as i32)) as usize;
     list_item = list_item
         .clone()
         .iter()
         .skip(skip)
+        .take(height as usize)
         .map(|item| item.to_owned())
         .collect();
 
@@ -265,6 +290,7 @@ fn render(
         .clone()
         .iter()
         .skip(skip)
+        .take(height as usize)
         .map(|item| item.to_owned())
         .collect();
 
@@ -272,7 +298,7 @@ fn render(
         Widgets::Block(block) => {
             result.push(WidgetData {
                 rect: chunk,
-                widget: Widgets::Block(block.title(title)),
+                widget: Widgets::Block(block.title(format!("{} - {}", length, index))),
             });
         }
         _ => {}

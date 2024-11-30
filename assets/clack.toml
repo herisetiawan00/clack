@@ -22,14 +22,9 @@ client_id = ""
 client_secret = ""
 
 [status_line.left]
-primary = " %mode% "
-secondary = " %channel% "
+template = " %mode% <> %channel% "
+separator = "\ue0b4"
 
 [status_line.right]
-primary = " %user% "
-secondary = " %team% "
-
-[appearance]
-left_separator = "\ue0b6"
-right_separator = "\ue0b4"
-separator = "|"
+template = " %team% <> %user% "
+separator = "\ue0b6"

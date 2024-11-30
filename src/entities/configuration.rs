@@ -6,7 +6,6 @@ pub struct Configuration {
     pub keymaps: KeyMaps,
     pub slack: Slack,
     pub status_line: StatusLine,
-    pub appearance: Appearance,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -45,14 +44,7 @@ pub struct StatusLine {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct StatusLineSide {
-    pub primary: String,
-    pub secondary: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct Appearance {
-    pub left_separator: String,
-    pub right_separator: String,
+    pub template: String,
     pub separator: String,
 }
 
@@ -95,36 +87,23 @@ impl Configuration {
                     left: status_line
                         .left
                         .map_or(self.status_line.left.clone(), |left| StatusLineSide {
-                            primary: left
-                                .primary
-                                .unwrap_or(self.status_line.left.primary.clone()),
-                            secondary: left
-                                .secondary
-                                .unwrap_or(self.status_line.left.secondary.clone()),
+                            template: left
+                                .template
+                                .unwrap_or(self.status_line.left.template.clone()),
+                            separator: left
+                                .separator
+                                .unwrap_or(self.status_line.left.separator.clone()),
                         }),
                     right: status_line
                         .right
                         .map_or(self.status_line.right.clone(), |right| StatusLineSide {
-                            primary: right
-                                .primary
-                                .unwrap_or(self.status_line.right.primary.clone()),
-                            secondary: right
-                                .secondary
-                                .unwrap_or(self.status_line.right.secondary.clone()),
+                            template: right
+                                .template
+                                .unwrap_or(self.status_line.right.template.clone()),
+                            separator: right
+                                .separator
+                                .unwrap_or(self.status_line.right.separator.clone()),
                         }),
-                }),
-            appearance: other
-                .appearance
-                .map_or(self.appearance.clone(), |appearance| Appearance {
-                    left_separator: appearance
-                        .left_separator
-                        .unwrap_or(self.appearance.left_separator.clone()),
-                    right_separator: appearance
-                        .right_separator
-                        .unwrap_or(self.appearance.right_separator.clone()),
-                    separator: appearance
-                        .separator
-                        .unwrap_or(self.appearance.separator.clone()),
                 }),
         }
     }
@@ -136,7 +115,6 @@ pub struct PartialConfiguration {
     pub keymaps: Option<PartialKeyMaps>,
     pub slack: Option<PartialSlack>,
     pub status_line: Option<PartialStatusLine>,
-    pub appearance: Option<PartialAppearance>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -175,14 +153,7 @@ pub struct PartialStatusLine {
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct PartialStatusLineSide {
-    pub primary: Option<String>,
-    pub secondary: Option<String>,
-}
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct PartialAppearance {
-    left_separator: Option<String>,
-    right_separator: Option<String>,
+    template: Option<String>,
     separator: Option<String>,
 }
 
@@ -193,7 +164,6 @@ impl PartialConfiguration {
             keymaps: None,
             slack: None,
             status_line: None,
-            appearance: None,
         }
     }
 
@@ -248,27 +218,18 @@ impl PartialConfiguration {
                         .left
                         .clone()
                         .map(|left| StatusLineSide {
-                            primary: left.primary.unwrap(),
-                            secondary: left.secondary.unwrap(),
+                            template: left.template.unwrap(),
+                            separator: left.separator.unwrap(),
                         })
                         .unwrap(),
                     right: status_line
                         .right
                         .clone()
                         .map(|right| StatusLineSide {
-                            primary: right.primary.unwrap(),
-                            secondary: right.secondary.unwrap(),
+                            template: right.template.unwrap(),
+                            separator: right.separator.unwrap(),
                         })
                         .unwrap(),
-                })
-                .unwrap(),
-            appearance: self
-                .appearance
-                .clone()
-                .map(|appearance| Appearance {
-                    left_separator: appearance.left_separator.unwrap(),
-                    right_separator: appearance.right_separator.unwrap(),
-                    separator: appearance.separator.unwrap(),
                 })
                 .unwrap(),
         }

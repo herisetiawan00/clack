@@ -5,6 +5,7 @@ pub enum Section {
     Input,
     StatusLine,
     Thread,
+    Command,
     Unknown,
 }
 

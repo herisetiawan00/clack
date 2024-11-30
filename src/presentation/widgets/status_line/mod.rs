@@ -1,17 +1,15 @@
-use std::collections::HashMap;
-
-use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-};
-
 use crate::{
     cache::Cache,
     entities::configuration::Configuration,
     enums::{section::Section, widgets::Widgets},
     states::State,
 };
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+};
+use std::collections::HashMap;
 
 use super::section_data::{SectionData, WidgetData};
 
@@ -21,53 +19,6 @@ pub fn new() -> SectionData<'static> {
         need_render,
         render,
     }
-}
-
-fn build_line(
-    mut primary: String,
-    mut secondary: String,
-    placeholders: &HashMap<&str, &str>,
-    alignment: Alignment,
-    config: &Configuration,
-    state: &State,
-) -> Line<'static> {
-    for (key, value) in placeholders {
-        let key_pattern = format!("%{}%", key);
-        primary = primary.clone().replace(&key_pattern, value);
-        secondary = secondary.clone().replace(&key_pattern, value);
-    }
-
-    let color = state.global.mode.to_color();
-
-    let mut spans = vec![Span::styled(
-        format!(
-            "{}{}{}",
-            primary,
-            config.appearance.separator.clone(),
-            secondary
-        ),
-        Style::default()
-            .fg(Color::Black)
-            .bg(color)
-            .add_modifier(Modifier::BOLD),
-    )];
-
-    if alignment == Alignment::Left {
-        spans.push(Span::styled(
-            config.appearance.right_separator.clone(),
-            Style::default().fg(color),
-        ));
-    } else if alignment == Alignment::Right {
-        spans.insert(
-            0,
-            Span::styled(
-                config.appearance.left_separator.clone(),
-                Style::default().fg(color),
-            ),
-        )
-    }
-
-    Line::default().spans(spans).alignment(alignment)
 }
 
 fn need_render(old_state: &State, state: &State) -> bool {
@@ -109,32 +60,85 @@ fn render(
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunk);
 
-    let left_line = build_line(
-        config.status_line.left.primary.clone(),
-        config.status_line.left.secondary.clone(),
-        &placeholders,
-        Alignment::Left,
-        config,
-        state,
-    );
+    let mut left_text = config.status_line.left.template.clone();
+    let mut right_text = config.status_line.right.template.clone();
 
-    let right_line = build_line(
-        config.status_line.right.primary.clone(),
-        config.status_line.right.secondary.clone(),
-        &placeholders,
-        Alignment::Right,
-        config,
-        state,
-    );
+    for (key, value) in placeholders {
+        left_text = left_text.replace(&format!("%{}%", key), value);
+        right_text = right_text.replace(&format!("%{}%", key), value);
+    }
+
+    let splited_left = left_text
+        .split("<>")
+        .map(|text| text.to_owned())
+        .collect::<Vec<String>>();
+    let splited_right = right_text
+        .split("<>")
+        .map(|text| text.to_owned())
+        .collect::<Vec<String>>();
+
+    let primary_left = splited_left.get(0).unwrap_or(&String::new()).clone();
+    let secondary_left = splited_left.get(1).unwrap_or(&String::new()).clone();
+    let teriary_left = splited_left.get(2).unwrap_or(&String::new()).clone();
+
+    let left_spans: Vec<Span> = vec![
+        Span::styled(
+            primary_left,
+            Style::default().fg(Color::Black).bg(mode.to_color()),
+        ),
+        Span::styled(
+            config.status_line.left.separator.clone(),
+            Style::default().fg(mode.to_color()).bg(Color::DarkGray),
+        ),
+        Span::styled(
+            secondary_left,
+            Style::default().fg(Color::White).bg(Color::DarkGray),
+        ),
+        Span::styled(
+            config.status_line.left.separator.clone(),
+            Style::default().fg(Color::DarkGray).bg(Color::default()),
+        ),
+        Span::styled(
+            teriary_left,
+            Style::default().fg(Color::White).bg(Color::default()),
+        ),
+    ];
+
+    let primary_right = splited_right.get(0).unwrap_or(&String::new()).clone();
+    let secondary_right = splited_right.get(1).unwrap_or(&String::new()).clone();
+    let teriary_right = splited_right.get(2).unwrap_or(&String::new()).clone();
+
+    let right_spans: Vec<Span> = vec![
+        Span::styled(
+            teriary_right,
+            Style::default().fg(Color::White).bg(Color::default()),
+        ),
+        Span::styled(
+            config.status_line.right.separator.clone(),
+            Style::default().fg(Color::DarkGray).bg(Color::default()),
+        ),
+        Span::styled(
+            secondary_right,
+            Style::default().fg(Color::White).bg(Color::DarkGray),
+        ),
+        Span::styled(
+            config.status_line.right.separator.clone(),
+            Style::default().fg(mode.to_color()).bg(Color::DarkGray),
+        ),
+        Span::styled(
+            primary_right,
+            Style::default().fg(Color::Black).bg(mode.to_color()),
+        ),
+    ];
 
     result.push(WidgetData {
         rect: chunks[0],
-        widget: Widgets::Line(left_line),
+        widget: Widgets::Line(Line::from(left_spans).alignment(Alignment::Left)),
     });
 
     result.push(WidgetData {
         rect: chunks[1],
-        widget: Widgets::Line(right_line),
+        widget: Widgets::Line(Line::from(right_spans).alignment(Alignment::Right)),
     });
 
     result
