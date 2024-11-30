@@ -1,7 +1,10 @@
+use std::cmp::{max, min};
+
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
-    widgets::Paragraph,
+    text::{Line, Span},
+    widgets::{List, ListItem, Paragraph},
 };
 
 use crate::{
@@ -9,6 +12,7 @@ use crate::{
     entities::configuration::Configuration,
     enums::{section::Section, widgets::Widgets},
     states::State,
+    utils::string::split_text_with_custom_first,
 };
 
 use super::{
@@ -67,12 +71,39 @@ fn render(
         Style::default()
     };
 
+    let length = chunk.width as usize - 2;
+
+    let splited_text: Vec<String> = text.split("\n").map(|text| text.to_string()).collect();
+
+    let mut wrapped_text: Vec<String> = Vec::new();
+
+    splited_text.clone().into_iter().for_each(|text| {
+        wrapped_text.extend(split_text_with_custom_first(&text, length, length));
+    });
+
+    let mut list_item: Vec<ListItem> = Vec::new();
+
+    for text in wrapped_text {
+        let line = Line::default().spans([Span::from(text)]);
+        let item = ListItem::new(line).style(style);
+        list_item.push(item);
+    }
+
+    let skip = max(list_item.len() as i32 - (chunk.height as i32 - 2), 0) as usize;
+
+    list_item = list_item
+        .clone()
+        .iter()
+        .skip(skip)
+        .map(|item| item.to_owned())
+        .collect();
+
     if let Widgets::Block(block) =
         common::block::build(state.global.section == Section::Input, &state.global.mode)
     {
         result.push(WidgetData {
             rect: chunk,
-            widget: Widgets::Paragraph(Paragraph::new(text).style(style).block(block)),
+            widget: Widgets::List(List::new(list_item.clone()).style(style).block(block)),
         });
     }
 

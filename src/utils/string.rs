@@ -1,5 +1,7 @@
 use std::cmp::min;
 
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+
 pub fn split_with_space(input: String, length: usize, skip: Option<usize>) -> Vec<String> {
     let mut chunks = Vec::new();
     let mut start = 0;
@@ -50,4 +52,16 @@ pub fn split_text_with_custom_first(
     );
 
     result
+}
+
+pub fn date_format(timestamp_str: String, template: &str) -> Option<String> {
+    let timestamp = timestamp_str.parse::<f64>().ok()?;
+    let seconds = timestamp.floor() as i64;
+
+    let offset = Local::now().offset().clone();
+
+    let naive_datetime: DateTime<Local> =
+        DateTime::from_timestamp(seconds, 0)?.with_timezone(&TimeZone::from_offset(&offset));
+
+    Some(naive_datetime.format(template).to_string())
 }
