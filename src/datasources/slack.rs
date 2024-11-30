@@ -233,6 +233,63 @@ pub async fn get_conversations_history(
     Ok(result)
 }
 
+pub async fn get_conversations_replies(
+    token: String,
+    channel: String,
+    ts: String,
+) -> Result<Vec<Message>, Box<dyn std::error::Error>> {
+    let cache_code = format!("conversations.replies.{}.{}", channel, ts);
+    let cache_data = get_cache::<Vec<Message>>(cache_code.clone());
+
+    let mut result = cache_data.unwrap_or(Vec::new());
+
+    let parent = result
+        .first()
+        .map_or("0".to_string(), |message| message.ts.clone());
+    let oldest = result
+        .last()
+        .map_or("0".to_string(), |message| message.ts.clone());
+
+    let client = Client::new();
+    let url = "https://slack.com/api/conversations.replies";
+    let mut headers = HeaderMap::new();
+    let mut params = HashMap::new();
+
+    params.insert("channel", channel.as_str());
+    params.insert("ts", ts.as_str());
+    params.insert("oldest", &oldest.as_str());
+
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(format!("Bearer {}", token).as_str())?,
+    );
+
+    let response = client
+        .get(url)
+        .headers(headers)
+        .query(&params)
+        .send()
+        .await?;
+
+    let body_str = response.text().await?;
+    let response: entities::slack::messages::ApiResponse = serde_json::from_str(body_str.as_str())?;
+
+    let mut response_messages = response.messages.clone();
+    response_messages.sort_by(|a, b| a.ts.cmp(&b.ts));
+
+    for message in response_messages {
+        if message.ts != parent {
+            result.push(message);
+        }
+    }
+
+    let data = serde_json::to_string(&result)?;
+
+    store_cache(cache_code, data)?;
+
+    Ok(result)
+}
+
 pub async fn get_users_list(token: String) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
     let cache_code = String::from("users.list");
 
@@ -300,6 +357,37 @@ pub async fn chat_post_message(
     form_data.insert("channel", channel.as_str());
     form_data.insert("text", text.as_str());
     form_data.insert("as_user", "true");
+
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(format!("Bearer {}", token).as_str())?,
+    );
+
+    client
+        .post(url)
+        .headers(headers)
+        .form(&form_data)
+        .send()
+        .await?;
+
+    Ok(())
+}
+
+pub async fn chat_post_message_reply(
+    token: String,
+    channel: String,
+    text: String,
+    ts: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::new();
+    let url = "https://slack.com/api/chat.postMessage";
+    let mut headers = HeaderMap::new();
+    let mut form_data: HashMap<&str, &str> = HashMap::new();
+
+    form_data.insert("channel", channel.as_str());
+    form_data.insert("text", text.as_str());
+    form_data.insert("as_user", "true");
+    form_data.insert("thread_ts", ts.as_str());
 
     headers.insert(
         AUTHORIZATION,

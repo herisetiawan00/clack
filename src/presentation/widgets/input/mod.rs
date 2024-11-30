@@ -44,22 +44,26 @@ fn render(
     let mut result: Vec<WidgetData> = Vec::new();
 
     let text = if state.input.value.is_empty() {
-        let opened = state.channel.opened.clone();
-        match opened {
-            Some(channel) => {
-                let prefix = if channel.is_im {
-                    "\u{eabc}"
-                } else if channel.is_mpim.unwrap_or(false) {
-                    "\u{f0c0}"
-                } else if channel.is_private.unwrap_or(false) {
-                    "\u{e672}"
-                } else {
-                    "\u{f4df}"
-                };
+        let opened_channel = state.channel.opened.clone();
+        let opened_message = state.message.opened.clone();
+        match opened_message {
+            Some(_) => String::from("Reply on opened message"),
+            None => match opened_channel {
+                Some(channel) => {
+                    let prefix = if channel.is_im {
+                        "\u{eabc}"
+                    } else if channel.is_mpim.unwrap_or(false) {
+                        "\u{f0c0}"
+                    } else if channel.is_private.unwrap_or(false) {
+                        "\u{e672}"
+                    } else {
+                        "\u{f4df}"
+                    };
 
-                format!("Message {} {}", prefix, channel.name.unwrap_or(channel.id))
-            }
-            None => String::from("Select channel and start mesaging :D"),
+                    format!("Message {} {}", prefix, channel.name.unwrap_or(channel.id))
+                }
+                None => String::from("Select channel and start mesaging :D"),
+            },
         }
     } else {
         state.input.value.clone()

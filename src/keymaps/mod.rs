@@ -5,7 +5,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crate::{
     entities::{configuration::Configuration, slack::conversations::Channel},
     enums::{section::Section, user_mode::UserMode},
-    states::{ChannelState, State},
+    states::{ChannelState, MessageState, State, ThreadState},
     utils,
 };
 
@@ -22,19 +22,31 @@ pub fn generic(event: Event, config: &Configuration, state: &mut State) {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == up => match state.global.section {
-                    Section::Input => state.global.section = Section::Message,
+                    Section::Input => {
+                        state.global.section = if state.message.opened.is_some() {
+                            Section::Thread
+                        } else {
+                            Section::Message
+                        }
+                    }
                     _ => {}
                 },
                 key if key == down => match state.global.section {
-                    Section::Message => state.global.section = Section::Input,
+                    Section::Message | Section::Thread => state.global.section = Section::Input,
                     _ => {}
                 },
                 key if key == left => match state.global.section {
                     Section::Message | Section::Input => state.global.section = Section::Channel,
+                    Section::Thread => state.global.section = Section::Message,
                     _ => {}
                 },
                 key if key == right => match state.global.section {
                     Section::Channel => state.global.section = Section::Message,
+                    Section::Message => {
+                        if state.message.opened.is_some() {
+                            state.global.section = Section::Thread
+                        }
+                    }
                     _ => {}
                 },
                 key if key == exit => {
@@ -137,6 +149,8 @@ pub fn channels(event: Event, config: &Configuration, state: &mut State) {
                 key if key == open || key == right => {
                     state.channel.opened = state.channel.selected.clone();
                     state.global.section = Section::Message;
+                    state.message = MessageState::new();
+                    state.thread = ThreadState::new();
                 }
                 key if key == search => {
                     state.global.mode = UserMode::Search;
@@ -221,7 +235,6 @@ pub fn input(event: Event, config: &Configuration, state: &mut State) {
                 }
                 (KeyModifiers::NONE, KeyCode::Esc) => {
                     state.global.mode = UserMode::Normal;
-                    //cloned_state.input.value = String::new();
                 }
                 _ => {}
             },
@@ -238,6 +251,7 @@ pub fn messages(event: Event, config: &Configuration, state: &mut State) {
 
     let up = utils::keycode::from_string(config.keymaps.up.clone());
     let down = utils::keycode::from_string(config.keymaps.down.clone());
+    let right = utils::keycode::from_string(config.keymaps.right.clone());
 
     let last_index = max(state.message.messages.len() as i32 - 1, 0) as usize;
 
@@ -247,6 +261,9 @@ pub fn messages(event: Event, config: &Configuration, state: &mut State) {
                 modifiers, code, ..
             }) => match (modifiers, code) {
                 key if key == up => {
+                    if state.message.messages.is_empty() {
+                        return;
+                    }
                     let next_index = match state.message.selected.clone() {
                         Some(selected) => {
                             let index = state
@@ -273,6 +290,9 @@ pub fn messages(event: Event, config: &Configuration, state: &mut State) {
                     state.message.selected_index = Some(next_index);
                 }
                 key if key == down => {
+                    if state.message.messages.is_empty() {
+                        return;
+                    }
                     let next_index = match state.message.selected.clone() {
                         Some(selected) => {
                             let index = state
@@ -297,6 +317,95 @@ pub fn messages(event: Event, config: &Configuration, state: &mut State) {
 
                     state.message.selected = Some(state.message.messages[next_index].clone());
                     state.message.selected_index = Some(next_index);
+                }
+                key if key == right => {
+                    if state.message.selected.is_some() {
+                        state.message.opened = state.message.selected.clone();
+                        state.global.section = Section::Thread;
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        },
+        _ => {}
+    }
+}
+
+pub fn thread(event: Event, config: &Configuration, state: &mut State) {
+    if state.global.section != Section::Thread {
+        return;
+    }
+
+    let up = utils::keycode::from_string(config.keymaps.up.clone());
+    let down = utils::keycode::from_string(config.keymaps.down.clone());
+
+    let last_index = max(state.thread.messages.len() as i32 - 1, 0) as usize;
+
+    match state.global.mode {
+        UserMode::Normal => match event {
+            Event::Key(KeyEvent {
+                modifiers, code, ..
+            }) => match (modifiers, code) {
+                key if key == up => {
+                    let next_index = match state.thread.selected.clone() {
+                        Some(selected) => {
+                            let index = state
+                                .thread
+                                .messages
+                                .iter()
+                                .position(|message| message == &selected);
+
+                            match index {
+                                Some(index) => {
+                                    if index > 0 {
+                                        index - 1
+                                    } else {
+                                        index
+                                    }
+                                }
+                                None => last_index,
+                            }
+                        }
+                        None => last_index,
+                    };
+
+                    state.thread.selected = Some(state.thread.messages[next_index].clone());
+                    state.thread.selected_index = Some(next_index);
+                }
+                key if key == down => {
+                    if state.thread.messages.is_empty() {
+                        return;
+                    }
+                    let next_index = match state.thread.selected.clone() {
+                        Some(selected) => {
+                            let index = state
+                                .thread
+                                .messages
+                                .iter()
+                                .position(|message| message == &selected);
+
+                            match index {
+                                Some(index) => {
+                                    if index < last_index {
+                                        index + 1
+                                    } else {
+                                        index
+                                    }
+                                }
+                                None => 0,
+                            }
+                        }
+                        None => 0,
+                    };
+
+                    state.thread.selected = Some(state.thread.messages[next_index].clone());
+                    state.thread.selected_index = Some(next_index);
+                }
+                (KeyModifiers::NONE, KeyCode::Esc) => {
+                    state.message.opened = None;
+                    state.global.section = Section::Message;
+                    state.thread = ThreadState::new();
                 }
                 _ => {}
             },

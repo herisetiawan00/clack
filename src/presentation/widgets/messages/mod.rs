@@ -253,7 +253,7 @@ fn render(
     let height = min(chunks[1].height as i32 - 2, list_item.len() as i32);
     let index = state.message.selected_index.unwrap_or(height as usize) as i32;
     let length = list_item.len() as i32;
-    let skip = max(length - max(length - index - height, 0) - height, 0) as usize;
+    let skip = max(length - max(length - index - height, 0) - height + 2, 0) as usize;
     list_item = list_item
         .clone()
         .iter()
@@ -272,7 +272,7 @@ fn render(
         Widgets::Block(block) => {
             result.push(WidgetData {
                 rect: chunk,
-                widget: Widgets::Block(block),
+                widget: Widgets::Block(block.title(title)),
             });
         }
         _ => {}
