@@ -2,6 +2,7 @@
 pub struct Context {
     pub routes: Vec<String>,
     pub command: String,
+    pub loading: bool,
 }
 
 impl Default for Context {
@@ -9,6 +10,7 @@ impl Default for Context {
         Self {
             command: String::default(),
             routes: vec![String::from("/")],
+            loading: false,
         }
     }
 }
@@ -32,5 +34,13 @@ impl Context {
 
     pub fn is_exit(&self) -> bool {
         self.routes.is_empty()
+    }
+
+    pub fn show_loading(&mut self) {
+        self.loading = true;
+    }
+
+    pub fn hide_loading(&mut self) {
+        self.loading = false;
     }
 }

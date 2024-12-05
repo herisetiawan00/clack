@@ -1,5 +1,5 @@
 pub mod screen;
-mod widgets;
+pub mod widgets;
 
 use std::collections::HashMap;
 

@@ -2,12 +2,15 @@ use std::{sync::mpsc, time::Duration};
 
 use crossterm::{
     event, execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use ratatui::{prelude::CrosstermBackend, Terminal};
-use tokio::sync::watch;
+use tokio::{sync::watch, time};
 
-use crate::{context::Context, route};
+use crate::{context::Context, presentation::widgets, route};
 
 pub async fn main() {
     enable_raw_mode().unwrap();
@@ -70,27 +73,42 @@ async fn ui_thread(ctx_rx: watch::Receiver<Context>) {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut old_context: Option<Context> = None;
+    let loading_symbols = String::from("⣾⣽⣻⢿⡿⣟⣯⣷");
+    let mut loading_index: usize = 0;
 
     loop {
         let context = ctx_rx.borrow().clone();
 
-        if old_context.clone().is_some_and(|value| value == context) {
-            continue;
+        if context.loading {
+            widgets::loading::build(
+                &terminal.size().unwrap(),
+                &loading_symbols,
+                &mut loading_index,
+            );
         }
 
-        if context.is_exit() {
-            break;
+        if old_context.clone().is_none_or(|value| value != context) {
+            if old_context.map_or(false, |context| context.loading) && !context.loading {
+                execute!(std::io::stdout(), Clear(ClearType::All)).unwrap();
+                terminal.clear().unwrap();
+            }
+
+            if context.is_exit() {
+                break;
+            }
+
+            let build = route::get(context.current_route()).build;
+
+            terminal
+                .draw(|frame| {
+                    build(frame, &context);
+                })
+                .unwrap();
+
+            old_context = Some(context.clone());
         }
 
-        let build = route::get(context.current_route()).build;
-
-        terminal
-            .draw(|frame| {
-                build(frame, &context);
-            })
-            .unwrap();
-
-        old_context = Some(context.clone());
+        time::sleep(Duration::from_millis(100)).await;
     }
 
     execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();

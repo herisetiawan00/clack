@@ -22,6 +22,12 @@ fn commands(command: &String, context: &mut Context) {
         "exit" => {
             context.route_pop();
         }
+        "loading show" => {
+            context.show_loading();
+        }
+        "loading hide" => {
+            context.hide_loading();
+        }
         _ => {}
     }
 }
