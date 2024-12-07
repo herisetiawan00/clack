@@ -5,11 +5,14 @@ use ratatui::{
     Frame,
 };
 
-use crate::context::Context;
+use crate::{
+    cache::Cache, common::enums::request::Request, context::Context,
+    entities::configuration::Configuration,
+};
 
 use super::Screen;
 
-pub fn get() -> Screen {
+pub fn get() -> Screen<'static> {
     Screen {
         commands,
         keymaps,
@@ -17,7 +20,8 @@ pub fn get() -> Screen {
     }
 }
 
-fn commands(command: &String, context: &mut Context) {
+fn commands(config: &Configuration, command: &String, context: &mut Context) -> Option<Request> {
+    let mut request: Option<Request> = None;
     match command.as_str() {
         "exit" => {
             context.route_pop();
@@ -28,11 +32,19 @@ fn commands(command: &String, context: &mut Context) {
         "loading hide" => {
             context.hide_loading();
         }
+        "login" => {
+            request = Some(Request::Authorization(String::from("login_success")));
+        }
+        "login_success" => {
+            context.route_push(String::from("/home"));
+        }
         _ => {}
     }
+
+    request
 }
 
-fn keymaps(event: &event::Event, context: &mut Context) -> Option<String> {
+fn keymaps(config: &Configuration, event: &event::Event, context: &mut Context) -> Option<String> {
     let mut command: Option<String> = None;
 
     if let event::Event::Key(KeyEvent { code, .. }) = event {
@@ -54,7 +66,12 @@ fn keymaps(event: &event::Event, context: &mut Context) -> Option<String> {
     command
 }
 
-fn build(frame: &mut Frame, context: &Context) {
+fn build<'screen>(
+    config: &Configuration,
+    frame: &mut Frame,
+    context: &Context,
+    cache: &mut Cache<'screen>,
+) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

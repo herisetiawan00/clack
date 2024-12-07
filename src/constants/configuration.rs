@@ -1,11 +1,11 @@
 use super::dir;
 
-pub fn configuration_path() -> Result<String, Box<dyn std::error::Error>> {
+pub fn configuration_path() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let dir = format!("{}/clack.toml", dir::app_config_dir()?);
     Ok(dir)
 }
 
-pub fn cache_path() -> Result<String, Box<dyn std::error::Error>> {
+pub fn cache_path() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let dir = format!("{}/.cache", dir::app_config_dir()?);
     Ok(dir)
 }

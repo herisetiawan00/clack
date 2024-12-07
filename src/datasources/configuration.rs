@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::constants;
 use crate::entities::configuration::{Configuration, PartialConfiguration};
 
-pub fn get_configuration() -> Result<Configuration, Box<dyn std::error::Error>> {
+pub fn get_configuration() -> Result<Configuration, Box<dyn std::error::Error + Send + Sync>> {
     let config_path = constants::configuration::configuration_path()?;
 
     let mut user_configuration = PartialConfiguration::empty();

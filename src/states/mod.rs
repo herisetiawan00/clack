@@ -5,9 +5,8 @@ use crate::{
     enums::{section::Section, user_mode::UserMode},
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct State {
-    pub authorization: Option<Authorization>,
     pub global: GlobalState,
     pub channel: ChannelState,
     pub message: MessageState,
@@ -15,15 +14,14 @@ pub struct State {
     pub thread: ThreadState,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct GlobalState {
     pub members: Vec<Member>,
-    pub mode: UserMode,
     pub section: Section,
     pub exit: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct InputState {
     pub value: String,
     pub send: bool,
@@ -57,7 +55,6 @@ pub struct ThreadState {
 impl State {
     pub fn new() -> State {
         State {
-            authorization: None,
             global: GlobalState::new(),
             channel: ChannelState::new(),
             message: MessageState::new(),
@@ -71,7 +68,6 @@ impl GlobalState {
     pub fn new() -> GlobalState {
         GlobalState {
             members: Vec::new(),
-            mode: UserMode::Normal,
             section: Section::Channel,
             exit: false,
         }

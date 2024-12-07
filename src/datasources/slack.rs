@@ -20,7 +20,8 @@ use crate::entities::{
 use super::cache::{get_cache, store_cache};
 
 pub async fn authorize_local(
-) -> Result<entities::slack::authorization::Authorization, Box<dyn std::error::Error>> {
+) -> Result<entities::slack::authorization::Authorization, Box<dyn std::error::Error + Send + Sync>>
+{
     let cache_code = String::from("oauth.v2.access");
     let result: entities::slack::authorization::Authorization = get_cache(cache_code)?;
 
@@ -30,7 +31,7 @@ pub async fn authorize_local(
 pub async fn authorize(
     client_id: String,
     client_secret: String,
-) -> Result<Authorization, Box<dyn std::error::Error>> {
+) -> Result<Authorization, Box<dyn std::error::Error + Send + Sync>> {
     let base_url = "https://slack.com/oauth/v2/authorize";
     let redirect_uri = "https://localhost:7777";
     let scope: Vec<&str> = vec![];
@@ -61,8 +62,6 @@ pub async fn authorize(
             .query_pairs_mut()
             .append_pair(key.as_str(), value.as_str());
     }
-
-    println!("url: {:?}", auth_url.to_string());
 
     std::process::Command::new("bash")
         .arg("-c")
@@ -95,7 +94,6 @@ pub async fn authorize(
         .collect();
 
     if let Some((_, code)) = query_params.iter().find(|&&(key, _)| key == "code") {
-        println!("Authorization code: {}", code);
         let result = exchange_access(client_id, client_secret, code.to_string()).await?;
         Ok(result)
     } else {
@@ -107,7 +105,7 @@ async fn exchange_access(
     client_id: String,
     client_secret: String,
     code: String,
-) -> Result<Authorization, Box<dyn std::error::Error>> {
+) -> Result<Authorization, Box<dyn std::error::Error + Send + Sync>> {
     let client = Client::new();
 
     let mut form_data: HashMap<&str, &str> = HashMap::new();
@@ -132,10 +130,11 @@ async fn exchange_access(
     Ok(result)
 }
 
-pub async fn get_conversations(token: String) -> Result<Vec<Channel>, Box<dyn std::error::Error>> {
+pub async fn get_conversations(
+    token: String,
+) -> Result<Vec<Channel>, Box<dyn std::error::Error + Send + Sync>> {
     let cache_code = String::from("users.conversations");
 
-    println!("Get list of channels...");
     let data = match get_cache::<Vec<Channel>>(cache_code.clone()) {
         Ok(data) => data,
         Err(_) => {
@@ -188,7 +187,7 @@ pub async fn get_conversations(token: String) -> Result<Vec<Channel>, Box<dyn st
 pub async fn get_conversations_history(
     token: String,
     channel: String,
-) -> Result<Vec<Message>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Message>, Box<dyn std::error::Error + Send + Sync>> {
     let cache_code = format!("conversations.history.{}", channel);
     let cache_data = get_cache::<Vec<Message>>(cache_code.clone());
 
@@ -237,7 +236,7 @@ pub async fn get_conversations_replies(
     token: String,
     channel: String,
     ts: String,
-) -> Result<Vec<Message>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Message>, Box<dyn std::error::Error + Send + Sync>> {
     let cache_code = format!("conversations.replies.{}.{}", channel, ts);
     let cache_data = get_cache::<Vec<Message>>(cache_code.clone());
 
@@ -290,10 +289,11 @@ pub async fn get_conversations_replies(
     Ok(result)
 }
 
-pub async fn get_users_list(token: String) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
+pub async fn get_users_list(
+    token: String,
+) -> Result<Vec<Member>, Box<dyn std::error::Error + Send + Sync>> {
     let cache_code = String::from("users.list");
 
-    println!("Get list of user...");
     let data = match get_cache::<Vec<Member>>(cache_code.clone()) {
         Ok(data) => data,
         Err(_) => {
@@ -328,7 +328,6 @@ pub async fn get_users_list(token: String) -> Result<Vec<Member>, Box<dyn std::e
                 result.extend(response.members);
                 cursor = response.response_metadata.next_cursor;
 
-                println!("Fetch {} users...", result.len());
                 if cursor.is_empty() {
                     break;
                 }
@@ -348,7 +347,7 @@ pub async fn chat_post_message(
     token: String,
     channel: String,
     text: String,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let client = Client::new();
     let url = "https://slack.com/api/chat.postMessage";
     let mut headers = HeaderMap::new();

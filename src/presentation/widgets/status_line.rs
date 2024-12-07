@@ -1,52 +1,27 @@
-use crate::{
-    cache::Cache,
-    entities::configuration::Configuration,
-    enums::{section::Section, widgets::Widgets},
-    states::State,
-};
-use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-};
 use std::collections::HashMap;
 
-use super::section_data::{SectionData, WidgetData};
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::{Line, Span},
+    Frame,
+};
 
-pub fn new() -> SectionData<'static> {
-    SectionData {
-        section: Section::StatusLine,
-        need_render,
-        render,
-    }
-}
+use crate::{context::Context, entities::configuration::Configuration};
 
-fn need_render(old_state: &State, state: &State) -> bool {
-    old_state.global.mode != state.global.mode || old_state.channel.opened != state.channel.opened
-}
-
-fn render(
-    chunk: Rect,
-    config: &Configuration,
-    state: &State,
-    cache: &mut Cache<'static>,
-) -> Vec<WidgetData<'static>> {
-    let mut result: Vec<WidgetData> = Vec::new();
-
-    let authorization = state.authorization.clone().unwrap();
-    let global = state.global.clone();
-
+pub fn render(frame: &mut Frame, rect: Rect, _config: &Configuration, _context: &Context) {
+    let authorization = _context.auth.clone().unwrap();
+    let global = _context.state.global.clone();
     let user = global
-        .get_user(authorization.authed_user.id.clone())
-        .unwrap();
-
-    let channel_name = state
+        .get_user(authorization.authed_user.id)
+        .expect("User is logged in");
+    let channel_name = _context
+        .state
         .channel
         .selected
         .clone()
         .map_or(String::new(), |channel| channel.name.unwrap_or(channel.id));
-
-    let mode = global.mode.clone();
+    let mode = _context.mode.clone();
     let mode_name = mode.to_string();
 
     let mut placeholders: HashMap<&str, &str> = HashMap::new();
@@ -55,13 +30,15 @@ fn render(
     placeholders.insert("mode", mode_name.as_str());
     placeholders.insert("channel", channel_name.as_str());
 
-    let chunks = Layout::default()
+    let rects = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chunk);
+        .split(rect);
+    let left_rect = rects[0];
+    let right_rect = rects[1];
 
-    let mut left_text = config.status_line.left.template.clone();
-    let mut right_text = config.status_line.right.template.clone();
+    let mut left_text = _config.status_line.left.template.clone();
+    let mut right_text = _config.status_line.right.template.clone();
 
     for (key, value) in placeholders {
         left_text = left_text.replace(&format!("%{}%", key), value);
@@ -84,18 +61,22 @@ fn render(
     let left_spans: Vec<Span> = vec![
         Span::styled(
             primary_left,
-            Style::default().fg(Color::Black).bg(mode.to_color()),
+            Style::default()
+                .fg(Color::Black)
+                .bg(_context.mode.to_color()),
         ),
         Span::styled(
-            config.status_line.left.separator.clone(),
-            Style::default().fg(mode.to_color()).bg(Color::DarkGray),
+            _config.status_line.left.separator.clone(),
+            Style::default()
+                .fg(_context.mode.to_color())
+                .bg(Color::DarkGray),
         ),
         Span::styled(
             secondary_left,
             Style::default().fg(Color::White).bg(Color::DarkGray),
         ),
         Span::styled(
-            config.status_line.left.separator.clone(),
+            _config.status_line.left.separator.clone(),
             Style::default().fg(Color::DarkGray).bg(Color::default()),
         ),
         Span::styled(
@@ -114,7 +95,7 @@ fn render(
             Style::default().fg(Color::White).bg(Color::default()),
         ),
         Span::styled(
-            config.status_line.right.separator.clone(),
+            _config.status_line.right.separator.clone(),
             Style::default().fg(Color::DarkGray).bg(Color::default()),
         ),
         Span::styled(
@@ -122,24 +103,22 @@ fn render(
             Style::default().fg(Color::White).bg(Color::DarkGray),
         ),
         Span::styled(
-            config.status_line.right.separator.clone(),
-            Style::default().fg(mode.to_color()).bg(Color::DarkGray),
+            _config.status_line.right.separator.clone(),
+            Style::default()
+                .fg(_context.mode.to_color())
+                .bg(Color::DarkGray),
         ),
         Span::styled(
             primary_right,
-            Style::default().fg(Color::Black).bg(mode.to_color()),
+            Style::default()
+                .fg(Color::Black)
+                .bg(_context.mode.to_color()),
         ),
     ];
 
-    result.push(WidgetData {
-        rect: chunks[0],
-        widget: Widgets::Line(Line::from(left_spans).alignment(Alignment::Left)),
-    });
+    let left_line = Line::from(left_spans).alignment(Alignment::Left);
+    let right_line = Line::from(right_spans).alignment(Alignment::Right);
 
-    result.push(WidgetData {
-        rect: chunks[1],
-        widget: Widgets::Line(Line::from(right_spans).alignment(Alignment::Right)),
-    });
-
-    result
+    frame.render_widget(left_line, left_rect);
+    frame.render_widget(right_line, right_rect);
 }
