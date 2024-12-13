@@ -24,14 +24,24 @@ pub fn get() -> Screen<'static> {
 }
 
 fn commands(_config: &Configuration, command: &String, context: &mut Context) -> Option<Request> {
-    match command.as_str() {
-        "back" => {
-            context.route_pop();
-        }
-        _ => {}
-    }
+    let focus_commands: Option<Request> = match context.focus_id.clone().as_str() {
+        "channels" => (channels::get().commands)(_config, command, context),
+        _ => None,
+    };
 
-    None
+    focus_commands.or({
+        match command.as_str() {
+            "back" => {
+                context.route_pop();
+            }
+            command if command.starts_with("focus ") => {
+                let focus_id = command.replace("focus ", "");
+                context.set_focus(focus_id);
+            }
+            _ => {}
+        }
+        None
+    })
 }
 
 fn keymaps(
@@ -39,19 +49,29 @@ fn keymaps(
     event: &event::Event,
     _context: &mut Context,
 ) -> Option<String> {
-    if let event::Event::Key(KeyEvent {
-        modifiers, code, ..
-    }) = event
-    {
-        match (modifiers, code) {
-            (&KeyModifiers::SHIFT, KeyCode::Char('Q')) => {
-                return Some(String::from("back"));
-            }
-            _ => {}
-        }
-    }
+    let focus_keymaps: Option<String> = match _context.focus_id.clone().as_str() {
+        "channels" => (channels::get().keymaps)(_config, event, _context),
+        _ => None,
+    };
 
-    None
+    focus_keymaps.or({
+        if let event::Event::Key(KeyEvent {
+            modifiers, code, ..
+        }) = event
+        {
+            match (modifiers, code) {
+                (&KeyModifiers::SHIFT, KeyCode::Char('Q')) => {
+                    return Some(String::from("back"));
+                }
+                _ => {
+                    if _context.focus_id.is_empty() {
+                        return Some(String::from("focus channels"));
+                    }
+                }
+            }
+        }
+        None
+    })
 }
 
 fn build<'screen>(
@@ -82,6 +102,6 @@ fn build<'screen>(
 
     frame.render_widget(block.clone().title("Messages"), message_rect);
 
-    channels::render(frame, channel_rect, &_config, &_context, _cache);
+    (channels::get().build)(_config, frame, _context, _cache, channel_rect);
     status_line::render(frame, status_rect, &_config, &_context);
 }

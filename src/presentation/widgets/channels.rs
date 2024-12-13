@@ -1,5 +1,6 @@
 use std::cmp::{max, min};
 
+use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -7,25 +8,175 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, List, ListItem},
     Frame,
 };
+use regex::Regex;
 
 use crate::{
     cache::Cache,
-    common::constants::icon,
+    common::{constants::icon, enums::request::Request},
     context::Context,
     entities::{configuration::Configuration, slack::conversations::Channel},
     enums::{user_mode::UserMode, widgets::Widgets},
+    utils,
 };
 
-//pub fn keymaps() {
-//
-//}
+use super::Widget;
 
-pub fn render(
-    frame: &mut Frame,
-    rect: Rect,
+pub fn get<'widget>() -> Widget<'widget> {
+    Widget {
+        commands,
+        keymaps,
+        build,
+    }
+}
+
+fn commands(_config: &Configuration, command: &String, context: &mut Context) -> Option<Request> {
+    let move_up_re = Regex::new(r"^move up (\d+)$").unwrap();
+    let move_down_re = Regex::new(r"^move down (\d+)$").unwrap();
+
+    let filtered_channels: Vec<&Channel> = context
+        .state
+        .channel
+        .channels
+        .iter()
+        .filter(|channel| {
+            channel
+                .name
+                .clone()
+                .unwrap_or(channel.id.clone())
+                .contains(&context.state.channel.search)
+        })
+        .collect();
+    let last_index = max(filtered_channels.len() as i32 - 1, 0) as usize;
+
+    if let Some(channel) = context.state.channel.selected.clone() {
+        if !filtered_channels.contains(&&channel) {
+            context.state.channel.selected = None;
+            context.state.channel.selected_index = None;
+        }
+    }
+
+    match command.as_str() {
+        command if command.starts_with("move up ") => {
+            if let Some(captures) = move_up_re.captures(command) {
+                let len: usize = captures
+                    .get(1)
+                    .map_or(0, |len| len.as_str().parse().unwrap());
+
+                let next_index = match context.state.channel.selected.clone() {
+                    Some(selected) => {
+                        let index = filtered_channels
+                            .iter()
+                            .position(|channel| channel == &&selected);
+
+                        match index {
+                            Some(index) => {
+                                if index == 0 {
+                                    last_index
+                                } else {
+                                    max(0, index as i32 - len as i32) as usize
+                                }
+                            }
+                            None => last_index,
+                        }
+                    }
+                    None => last_index,
+                };
+
+                context.state.channel.selected = Some(filtered_channels[next_index].clone());
+                context.state.channel.selected_index = Some(next_index);
+            }
+        }
+        command if command.starts_with("move down ") => {
+            if let Some(captures) = move_down_re.captures(command) {
+                let len: usize = captures
+                    .get(1)
+                    .map_or(0, |len| len.as_str().parse().unwrap());
+
+                let next_index = match context.state.channel.selected.clone() {
+                    Some(selected) => {
+                        let index = filtered_channels
+                            .iter()
+                            .position(|channel| channel == &&selected);
+
+                        match index {
+                            Some(index) => {
+                                if index == last_index {
+                                    0
+                                } else {
+                                    min(last_index, index + len)
+                                }
+                            }
+                            None => 0,
+                        }
+                    }
+                    None => 0,
+                };
+
+                context.state.channel.selected = Some(filtered_channels[next_index].clone());
+                context.state.channel.selected_index = Some(next_index);
+            }
+        }
+        command if command.starts_with("open ") => {
+            let channel_id = command.replace("open ", "");
+
+            let channel = context
+                .state
+                .channel
+                .channels
+                .iter()
+                .find(|channel| channel.id == channel_id);
+
+            if let Some(channel) = channel {
+                context.state.channel.opened = Some(channel.clone());
+                return Some(Request::GetConversationHistory(channel_id));
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+pub fn keymaps(
     _config: &Configuration,
+    event: &event::Event,
+    _context: &mut Context,
+) -> Option<String> {
+    let up = utils::keycode::from_string(_config.keymaps.up.clone());
+    let down = utils::keycode::from_string(_config.keymaps.down.clone());
+    let open = utils::keycode::from_string(_config.keymaps.open.clone());
+
+    if let event::Event::Key(KeyEvent {
+        modifiers, code, ..
+    }) = event.clone()
+    {
+        match (modifiers, code) {
+            (KeyModifiers::SHIFT, KeyCode::Char('Q')) => {
+                return Some(String::from("back"));
+            }
+            key if key == up => {
+                return Some(String::from("move up 1"));
+            }
+            key if key == down => {
+                return Some(String::from("move down 1"));
+            }
+            key if key == open => {
+                if let Some(channel) = &_context.state.channel.selected {
+                    return Some(format!("open {}", channel.id));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+pub fn build(
+    _config: &Configuration,
+    frame: &mut Frame,
     _context: &Context,
     _cache: &mut Cache,
+    rect: Rect,
 ) {
     let channel_state = _context.state.channel.clone();
     let channels = channel_state.channels;

@@ -1,5 +1,5 @@
 pub enum Request {
     Authorization(String),
-    GetConversationHistory,
+    GetConversationHistory(String),
     GetConversationReplies,
 }

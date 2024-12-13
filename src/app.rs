@@ -70,7 +70,7 @@ async fn input_thread(
     loop {
         let mut context = ctx_tx.borrow().clone();
 
-        if event::poll(Duration::from_millis(100)).unwrap() {
+        if event::poll(Duration::from_millis(10)).unwrap() {
             let event = event::read().unwrap();
 
             let keymaps = route::get(context.current_route()).keymaps;
@@ -143,10 +143,10 @@ async fn request_thread(
 
                     ctx_tx.send(context).unwrap();
                 }
-                Request::GetConversationHistory => {
+                Request::GetConversationHistory(channel_id) => {
                     let messages = datasources::slack::get_conversations_history(
                         context.auth.clone().unwrap().authed_user.access_token,
-                        context.state.channel.opened.clone().unwrap().id,
+                        channel_id,
                     )
                     .await?;
 
@@ -230,7 +230,7 @@ async fn ui_thread(config: Configuration, ctx_rx: watch::Receiver<Context>) {
             old_context = Some(context.clone());
         }
 
-        time::sleep(Duration::from_millis(100)).await;
+        time::sleep(Duration::from_millis(10)).await;
     }
 
     execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();

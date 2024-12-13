@@ -18,7 +18,7 @@ pub fn render(frame: &mut Frame, rect: Rect, _config: &Configuration, _context: 
     let channel_name = _context
         .state
         .channel
-        .selected
+        .opened
         .clone()
         .map_or(String::new(), |channel| channel.name.unwrap_or(channel.id));
     let mode = _context.mode.clone();
